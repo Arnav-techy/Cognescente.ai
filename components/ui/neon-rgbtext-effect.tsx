@@ -44,12 +44,7 @@ export function NeonRGBTextEffect({
     const textCanvas = document.createElement("canvas");
     const ctx = textCanvas.getContext("2d", { willReadFrequently: false });
 
-    const textTexture = new THREE.CanvasTexture(textCanvas);
-    textTexture.minFilter = THREE.LinearFilter;
-    textTexture.magFilter = THREE.LinearFilter;
-    textTexture.wrapS = THREE.ClampToEdgeWrapping;
-    textTexture.wrapT = THREE.ClampToEdgeWrapping;
-    textTexture.generateMipmaps = false;
+    let currentTexture: THREE.CanvasTexture | null = null;
 
     // Custom Shader Material for Subtle Neon RGB Chromatic Separation
     const vertexShader = `
@@ -109,7 +104,7 @@ export function NeonRGBTextEffect({
       vertexShader,
       fragmentShader,
       uniforms: {
-        u_texture: { value: textTexture },
+        u_texture: { value: null },
         u_time: { value: 0.0 },
         u_intensity: { value: intensity },
         u_resolution: { value: new THREE.Vector2(1, 1) },
@@ -132,8 +127,8 @@ export function NeonRGBTextEffect({
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
       // Set high-res canvas dimensions
-      textCanvas.width = width * dpr;
-      textCanvas.height = height * dpr;
+      textCanvas.width = Math.floor(width * dpr);
+      textCanvas.height = Math.floor(height * dpr);
 
       ctx.save();
       ctx.scale(dpr, dpr);
@@ -149,7 +144,7 @@ export function NeonRGBTextEffect({
 
       // If text exceeds width bounds, shrink font down smoothly
       let metrics = ctx.measureText(text);
-      while (metrics.width > width * 0.96 && targetFontSize > 11) {
+      while (metrics.width > width * 0.94 && targetFontSize > 11) {
         targetFontSize -= 1;
         ctx.font = `${fontWeight} ${targetFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`;
         metrics = ctx.measureText(text);
@@ -161,8 +156,18 @@ export function NeonRGBTextEffect({
       ctx.fillText(text, width / 2, height / 2);
       ctx.restore();
 
-      textTexture.needsUpdate = true;
+      // Dispose and re-create texture to handle WebGL dimension changes cleanly on resize
+      if (currentTexture) {
+        currentTexture.dispose();
+      }
+      currentTexture = new THREE.CanvasTexture(textCanvas);
+      currentTexture.minFilter = THREE.LinearFilter;
+      currentTexture.magFilter = THREE.LinearFilter;
+      currentTexture.wrapS = THREE.ClampToEdgeWrapping;
+      currentTexture.wrapT = THREE.ClampToEdgeWrapping;
+      currentTexture.generateMipmaps = false;
 
+      material.uniforms.u_texture.value = currentTexture;
       renderer.setSize(width, height);
       material.uniforms.u_resolution.value.set(width * dpr, height * dpr);
     };
@@ -198,7 +203,9 @@ export function NeonRGBTextEffect({
 
       geometry.dispose();
       material.dispose();
-      textTexture.dispose();
+      if (currentTexture) {
+        currentTexture.dispose();
+      }
       renderer.dispose();
     };
   }, [text, intensity, fontWeight, maxFontSize, minFontSize]);

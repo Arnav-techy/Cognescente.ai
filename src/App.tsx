@@ -1,14 +1,22 @@
+import { useState } from "react";
 import { DottedSurface } from "@/components/ui/dotted-surface";
 import { NeonRGBTextEffect } from "@/components/ui/neon-rgbtext-effect";
+import { GlassUploadButton } from "@/components/ui/glass-upload-button";
 
 export function App() {
+  const [, setSelectedAudioFile] = useState<File | null>(null);
+
+  const handleAudioSelect = (file: File) => {
+    setSelectedAudioFile(file);
+  };
+
   return (
     <main className="relative min-h-screen w-full overflow-hidden bg-transparent select-none">
       {/* Existing animated DottedSurface background - UNCHANGED */}
       <DottedSurface />
 
-      {/* Centered overlay positioned slightly above vertical center to reserve space below */}
-      <section className="relative z-10 min-h-screen w-full flex flex-col items-center justify-center pb-28 sm:pb-36 md:pb-44 lg:pb-48 px-4 pointer-events-none">
+      {/* Centered overlay positioned slightly above vertical center */}
+      <section className="relative z-10 min-h-screen w-full flex flex-col items-center justify-center pb-24 sm:pb-28 md:pb-36 px-4 pointer-events-none">
         <div className="flex flex-col items-center justify-center w-full max-w-5xl text-center gap-1 sm:gap-2">
           {/* Main Title: Dominant, large 72-96px desktop size with RGB effect */}
           <NeonRGBTextEffect
@@ -29,6 +37,11 @@ export function App() {
             intensity={0.7}
             className="h-6 sm:h-7 md:h-8 max-w-xl"
           />
+
+          {/* Upload Audio CTA button */}
+          <div className="mt-5 sm:mt-6 md:mt-7">
+            <GlassUploadButton onFileSelect={handleAudioSelect} />
+          </div>
         </div>
       </section>
     </main>
