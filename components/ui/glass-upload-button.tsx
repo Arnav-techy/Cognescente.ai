@@ -3,12 +3,14 @@ import { Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface GlassUploadButtonProps {
+  onClick?: () => void;
   onFileSelect?: (file: File) => void;
   className?: string;
   accept?: string;
 }
 
 export function GlassUploadButton({
+  onClick,
   onFileSelect,
   className,
   accept = "audio/*",
@@ -17,13 +19,21 @@ export function GlassUploadButton({
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
 
   const handleClick = () => {
-    fileInputRef.current?.click();
+    if (onClick) {
+      onClick();
+    } else {
+      fileInputRef.current?.click();
+    }
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
-      fileInputRef.current?.click();
+      if (onClick) {
+        onClick();
+      } else {
+        fileInputRef.current?.click();
+      }
     }
   };
 

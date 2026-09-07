@@ -182,10 +182,9 @@ export function NeonRGBTextEffect({
     window.addEventListener("resize", updateTextAndSize);
 
     // Animation loop
-    const clock = new THREE.Clock();
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate);
-      material.uniforms.u_time.value = clock.getElapsedTime();
+      material.uniforms.u_time.value = performance.now() * 0.001;
       renderer.render(scene, camera);
     };
 
