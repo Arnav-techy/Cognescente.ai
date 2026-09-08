@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
   ArrowLeft,
   RotateCcw,
@@ -24,205 +24,94 @@ export interface AnalysisViewProps {
   onAnalyzeAnother: () => void;
 }
 
-type StageStatus = "pending" | "analyzing" | "complete";
 
-interface PipelineStage {
-  id: string;
-  name: string;
-  pendingText: string;
-  analyzingText: string;
-  getCompleteTitle: (sample: DemoAudioSample | null) => string;
-  getCompleteSubtitle: (sample: DemoAudioSample | null) => string;
-  icon: typeof Radio;
-  status: StageStatus;
-}
 
 export function AnalysisView({
   selectedSample,
   onBack,
   onAnalyzeAnother,
 }: AnalysisViewProps) {
-  const [pipelineState, setPipelineState] = useState<"in-progress" | "complete">("in-progress");
-  const [isPlaying, setIsPlaying] = useState<boolean>(true);
-  const [currentTime, setCurrentTime] = useState<number>(0);
-  const [duration, setDuration] = useState<number>(0);
+  const [isProcessing, setIsProcessing] = useState<boolean>(true);
   const [showDetectionSignals, setShowDetectionSignals] = useState<boolean>(false);
 
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  // 4-stage pipeline definitions with meaningful completion messages
-  const [stages, setStages] = useState<PipelineStage[]>([
-    {
-      id: "signal",
-      name: "Audio Signal",
-      pendingText: "Waiting to process",
-      analyzingText: "Processing audio signal...",
-      getCompleteTitle: () => "Processed",
-      getCompleteSubtitle: () => "Signal quality: Good",
-      icon: Radio,
-      status: "analyzing",
-    },
-    {
-      id: "identity",
-      name: "Voice Identity",
-      pendingText: "Waiting for signal",
-      analyzingText: "Analyzing speaker characteristics...",
-      getCompleteTitle: () => "Analyzed",
-      getCompleteSubtitle: (sample) =>
-        `Speaker confidence: ${sample?.analysis.speakerConfidence ?? 96}%`,
-      icon: Fingerprint,
-      status: "pending",
-    },
-    {
-      id: "authenticity",
-      name: "Voice Authenticity",
-      pendingText: "Waiting for identity",
-      analyzingText: "Checking for synthetic or manipulated speech...",
-      getCompleteTitle: (sample) =>
-        sample?.type === "authentic" ? "Verified" : "Synthetic indicators detected",
-      getCompleteSubtitle: (sample) => {
-        if (sample?.type === "authentic") {
-          return `Authenticity score: ${sample.analysis.primaryScore}%`;
-        }
-        return `Authenticity score: ${100 - (sample?.analysis.primaryScore ?? 92)}%`;
-      },
-      icon: AudioWaveform,
-      status: "pending",
-    },
-    {
-      id: "risk",
-      name: "Security Risk",
-      pendingText: "Waiting for authenticity",
-      analyzingText: "Evaluating overall risk...",
-      getCompleteTitle: (sample) =>
-        sample?.type === "authentic" ? "Low risk" : "High risk",
-      getCompleteSubtitle: (sample) =>
-        `Risk score: ${sample?.analysis.riskScore ?? 7}%`,
-      icon: ShieldAlert,
-      status: "pending",
-    },
-  ]);
-
-  // Audio Playback Lifecycle
+  // 15-20s random processing timer
   useEffect(() => {
-    if (!selectedSample) return;
+    const delay = Math.floor(Math.random() * 5000) + 15000;
+    const timer = setTimeout(() => {
+      setIsProcessing(false);
+    }, delay);
 
-    const audio = new Audio(selectedSample.src);
-    audioRef.current = audio;
-
-    const handleLoadedMetadata = () => {
-      setDuration(audio.duration || 0);
-    };
-
-    const handleTimeUpdate = () => {
-      setCurrentTime(audio.currentTime);
-    };
-
-    const handleEnded = () => {
-      setIsPlaying(false);
-    };
-
-    audio.addEventListener("loadedmetadata", handleLoadedMetadata);
-    audio.addEventListener("timeupdate", handleTimeUpdate);
-    audio.addEventListener("ended", handleEnded);
-
-    // Auto-play audio on entering analysis
-    audio.play().then(() => {
-      setIsPlaying(true);
-    }).catch((err) => {
-      console.warn("Auto-play prevented:", err);
-      setIsPlaying(false);
-    });
-
-    return () => {
-      audio.pause();
-      audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
-      audio.removeEventListener("timeupdate", handleTimeUpdate);
-      audio.removeEventListener("ended", handleEnded);
-      audioRef.current = null;
-    };
-  }, [selectedSample]);
-
-  // Timed 4-Stage Security Pipeline (~4.5 seconds)
-  useEffect(() => {
-    // Stage 1 -> Complete & Stage 2 -> Analyzing at 1.0s
-    const t1 = setTimeout(() => {
-      setStages((prev) =>
-        prev.map((s) => {
-          if (s.id === "signal") return { ...s, status: "complete" };
-          if (s.id === "identity") return { ...s, status: "analyzing" };
-          return s;
-        })
-      );
-    }, 1000);
-
-    // Stage 2 -> Complete & Stage 3 -> Analyzing at 2.1s
-    const t2 = setTimeout(() => {
-      setStages((prev) =>
-        prev.map((s) => {
-          if (s.id === "identity") return { ...s, status: "complete" };
-          if (s.id === "authenticity") return { ...s, status: "analyzing" };
-          return s;
-        })
-      );
-    }, 2100);
-
-    // Stage 3 -> Complete & Stage 4 -> Analyzing at 3.4s
-    const t3 = setTimeout(() => {
-      setStages((prev) =>
-        prev.map((s) => {
-          if (s.id === "authenticity") return { ...s, status: "complete" };
-          if (s.id === "risk") return { ...s, status: "analyzing" };
-          return s;
-        })
-      );
-    }, 3400);
-
-    // Stage 4 -> Complete at 4.4s
-    const t4 = setTimeout(() => {
-      setStages((prev) =>
-        prev.map((s) => ({ ...s, status: "complete" }))
-      );
-    }, 4400);
-
-    // Final Verdict Reveal at 4.7s
-    const t5 = setTimeout(() => {
-      setPipelineState("complete");
-    }, 4700);
-
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-      clearTimeout(t4);
-      clearTimeout(t5);
-    };
+    return () => clearTimeout(timer);
   }, []);
 
-  // Toggle play/pause
-  const togglePlay = () => {
-    if (!audioRef.current) return;
-    if (isPlaying) {
-      audioRef.current.pause();
-      setIsPlaying(false);
-    } else {
-      audioRef.current.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+  const getAnalysisResult = (title: string | undefined) => {
+    const filename = (title || "").toLowerCase();
+    
+    if (filename.includes("sample1") || filename.includes("sample2") || filename.includes("sample5")) {
+      return {
+        verdict: "SYNTHETIC",
+        verdictTitle: "SPOOF ALERT",
+        primaryScore: 12,
+        primaryScoreLabel: "Authenticity Score",
+        speakerConfidence: 0,
+        riskScore: filename.includes("sample5") ? 99 : 95,
+        status: "HIGH RISK",
+        summary: "Warning: Spoof alert. Not a real person speaking, most likely AI.",
+        signals: [
+          { status: "warning", title: "AI Detected", description: "Synthetic patterns detected" },
+          { status: "warning", title: "Spoofing Detected", description: "Voice cloning suspected" }
+        ],
+      };
     }
+
+    if (filename.includes("sample3")) {
+      return {
+        verdict: "AUTHENTIC",
+        verdictTitle: "AUTHENTIC VOICE",
+        primaryScore: 96,
+        primaryScoreLabel: "Authenticity Score",
+        speakerConfidence: 95,
+        riskScore: 15,
+        status: "LOW RISK",
+        summary: "Identity matching score around 95% Nidhi and 11% Naman. Most likely Nidhi.",
+        signals: [
+          { status: "success", title: "Identity Confirmed", description: "Match found: Nidhi" }
+        ],
+      };
+    }
+
+    if (filename.includes("sample4")) {
+      return {
+        verdict: "AUTHENTIC",
+        verdictTitle: "AUTHENTIC VOICE",
+        primaryScore: 97,
+        primaryScoreLabel: "Authenticity Score",
+        speakerConfidence: 93,
+        riskScore: 12,
+        status: "LOW RISK",
+        summary: "Identity matching score 93% Naman and 14% Nidhi. Most likely Naman.",
+        signals: [
+          { status: "success", title: "Identity Confirmed", description: "Match found: Naman" }
+        ],
+      };
+    }
+
+    return {
+      verdict: "UNKNOWN",
+      verdictTitle: "UNKNOWN USER",
+      primaryScore: 80,
+      primaryScoreLabel: "Authenticity Score",
+      speakerConfidence: 0,
+      riskScore: 50,
+      status: "MED RISK",
+      summary: "Voice sample not found in the database. Might be a new user.",
+      signals: [
+        { status: "warning", title: "No Match", description: "User not found in database" }
+      ],
+    };
   };
 
-  const analysis = selectedSample?.analysis || {
-    verdict: "AUTHENTIC",
-    verdictTitle: "AUTHENTIC VOICE",
-    primaryScore: 98,
-    primaryScoreLabel: "Authenticity Score",
-    speakerConfidence: 96,
-    riskScore: 7,
-    status: "LOW RISK",
-    summary: "No significant indicators of synthetic voice generation detected.",
-    signals: [],
-  };
-
-  const isSynthetic = analysis.verdict === "SYNTHETIC";
+  const analysis = selectedSample?.analysis || getAnalysisResult(selectedSample?.title);
 
   return (
     <section className="relative z-10 w-full min-h-screen flex flex-col items-center justify-start sm:justify-center px-4 py-8 sm:py-12 pb-24 md:pb-28 select-none pointer-events-auto">
@@ -260,84 +149,26 @@ export function AnalysisView({
           </p>
         </div>
 
-        {/* Embedded Compact Floating Waveform Audio Player */}
-        <div className="w-full max-w-md mb-6">
-          <GlassWaveformPlayer
-            title={selectedSample?.title || "Voice Sample"}
-            isPlaying={isPlaying}
-            currentTime={currentTime}
-            duration={duration}
-            waveform={selectedSample?.waveform}
-            onTogglePlay={togglePlay}
-          />
+        {/* Embedded Audio Player */}
+        <div className="w-full max-w-md mb-6 flex justify-center">
+           <audio 
+             controls 
+             src={selectedSample?.src} 
+             className="w-full max-w-[400px] h-10"
+           />
         </div>
 
-        {/* Dynamic View: Pipeline vs Verdict */}
-        {pipelineState === "in-progress" ? (
-          /* Staged 4-Step Analysis Pipeline with Detailed Outcomes */
-          <div className="w-full max-w-md flex flex-col gap-3 py-2">
-            {stages.map((stage, idx) => {
-              const Icon = stage.icon;
-              return (
-                <div
-                  key={stage.id}
-                  className={cn(
-                    "flex items-center justify-between p-3.5 rounded-xl transition-all duration-300",
-                    stage.status === "analyzing"
-                      ? "bg-white/[0.08] border border-cyan-400/30 shadow-[0_0_15px_rgba(34,211,238,0.1)]"
-                      : stage.status === "complete"
-                      ? "bg-white/[0.04] border border-white/15"
-                      : "bg-white/[0.01] border border-white/5 opacity-40"
-                  )}
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={cn(
-                        "flex items-center justify-center w-8 h-8 rounded-lg transition-colors shrink-0",
-                        stage.status === "analyzing"
-                          ? "bg-cyan-500/20 text-cyan-300"
-                          : stage.status === "complete"
-                          ? "bg-emerald-500/20 text-emerald-300"
-                          : "bg-white/5 text-zinc-500"
-                      )}
-                    >
-                      <Icon className="w-4 h-4" />
-                    </div>
-
-                    <div>
-                      <p className="text-xs sm:text-sm font-medium text-white">
-                        {stage.status === "complete"
-                          ? `${stage.name} — ${stage.getCompleteTitle(selectedSample)}`
-                          : stage.name}
-                      </p>
-                      <p className="text-[11px] text-zinc-400">
-                        {stage.status === "analyzing"
-                          ? stage.analyzingText
-                          : stage.status === "complete"
-                          ? stage.getCompleteSubtitle(selectedSample)
-                          : stage.pendingText}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Status Indicator */}
-                  <div className="shrink-0 ml-2">
-                    {stage.status === "complete" && (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                    )}
-                    {stage.status === "analyzing" && (
-                      <div className="flex items-center gap-1">
-                        <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
-                        <span className="w-2 h-2 rounded-full bg-cyan-400" />
-                      </div>
-                    )}
-                    {stage.status === "pending" && (
-                      <span className="text-xs text-zinc-600">0{idx + 1}</span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+        {/* Dynamic View: Processing vs Verdict */}
+        {isProcessing ? (
+          /* Simple Processing View */
+          <div className="w-full flex flex-col items-center justify-center py-16 gap-6">
+            <div className="relative flex items-center justify-center w-16 h-16">
+              <span className="absolute w-full h-full rounded-full border-4 border-cyan-500/20 border-t-cyan-400 animate-spin" />
+              <span className="absolute w-3/4 h-3/4 rounded-full border-4 border-emerald-500/20 border-b-emerald-400 animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }} />
+            </div>
+            <p className="text-sm text-cyan-300 font-medium tracking-widest animate-pulse uppercase">
+              Processing Audio...
+            </p>
           </div>
         ) : (
           /* Final Security Verdict */
@@ -347,13 +178,17 @@ export function AnalysisView({
               <div
                 className={cn(
                   "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold tracking-wider uppercase border",
-                  isSynthetic
+                  analysis.status === "HIGH RISK"
                     ? "bg-rose-500/15 border-rose-500/30 text-rose-300 shadow-[0_0_15px_rgba(244,63,94,0.2)]"
+                    : analysis.status === "MED RISK"
+                    ? "bg-amber-500/15 border-amber-500/30 text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.2)]"
                     : "bg-emerald-500/15 border-emerald-500/30 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.2)]"
                 )}
               >
-                {isSynthetic ? (
+                {analysis.status === "HIGH RISK" ? (
                   <AlertTriangle className="w-3.5 h-3.5" />
+                ) : analysis.status === "MED RISK" ? (
+                  <Info className="w-3.5 h-3.5" />
                 ) : (
                   <ShieldCheck className="w-3.5 h-3.5" />
                 )}
@@ -363,7 +198,7 @@ export function AnalysisView({
               <h2
                 className={cn(
                   "text-xl sm:text-2xl md:text-3xl font-bold tracking-tight",
-                  isSynthetic ? "text-rose-100" : "text-white"
+                  analysis.status === "HIGH RISK" ? "text-rose-100" : analysis.status === "MED RISK" ? "text-amber-100" : "text-white"
                 )}
               >
                 {analysis.verdictTitle}
@@ -375,7 +210,7 @@ export function AnalysisView({
               <div
                 className={cn(
                   "text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-tight font-mono",
-                  isSynthetic ? "text-rose-400" : "text-emerald-400"
+                  analysis.status === "HIGH RISK" ? "text-rose-400" : analysis.status === "MED RISK" ? "text-amber-400" : "text-emerald-400"
                 )}
               >
                 {analysis.primaryScore}%
@@ -408,7 +243,7 @@ export function AnalysisView({
                 <span
                   className={cn(
                     "text-lg sm:text-xl font-semibold font-mono mt-0.5",
-                    isSynthetic ? "text-rose-400" : "text-emerald-400"
+                    analysis.status === "HIGH RISK" ? "text-rose-400" : analysis.status === "MED RISK" ? "text-amber-400" : "text-emerald-400"
                   )}
                 >
                   {analysis.riskScore}%
@@ -417,7 +252,7 @@ export function AnalysisView({
                   <div
                     className={cn(
                       "h-full rounded-full",
-                      isSynthetic ? "bg-rose-400" : "bg-emerald-400"
+                      analysis.status === "HIGH RISK" ? "bg-rose-400" : analysis.status === "MED RISK" ? "bg-amber-400" : "bg-emerald-400"
                     )}
                     style={{ width: `${analysis.riskScore}%` }}
                   />
@@ -455,7 +290,7 @@ export function AnalysisView({
                       Signals Breakdown
                     </span>
                     <span className="text-[10px] text-zinc-500 font-mono">
-                      4 SIGNALS EVALUATED
+                      {analysis.signals.length} SIGNALS EVALUATED
                     </span>
                   </div>
 
